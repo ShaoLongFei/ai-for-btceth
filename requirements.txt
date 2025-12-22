@@ -1,4 +1,4 @@
-ccxt
+yfinance
 pandas
 pandas_ta
 google-generativeai
