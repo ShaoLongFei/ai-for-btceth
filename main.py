@@ -10,8 +10,9 @@ import requests
 # --- 配置部分 ---
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 PUSHPLUS_TOKEN = os.getenv("PUSHPLUS_TOKEN")
+# 这里的模型版本可以根据需要调整，推荐 flash-001 或 pro
+MODEL_NAME = 'gemini-2.5-flash'
 
-# 配置 Gemini
 if GEMINI_KEY:
     genai.configure(api_key=GEMINI_KEY)
 else:
@@ -19,28 +20,56 @@ else:
     exit(1)
 
 def get_market_data(symbol='BTC-USD'):
-    """获取行情并计算指标 (使用 Yahoo Finance)"""
+    """获取行情并计算指标 (V2.0: 增加 MACD)"""
     print(f"正在获取 {symbol} 数据...")
     try:
         ticker = yf.Ticker(symbol)
-        df = ticker.history(period="5d", interval="1h")
+        # 获取更多数据以计算 MACD
+        df = ticker.history(period="7d", interval="1h")
         
         if df.empty:
-            print("❌ 获取数据失败，DataFrame 为空")
             return None, 0
 
+        # 1. 计算 RSI
         df['RSI'] = ta.rsi(df['Close'], length=14)
+        
+        # 2. 计算 EMA (趋势)
         df['EMA_20'] = ta.ema(df['Close'], length=20)
+        df['EMA_50'] = ta.ema(df['Close'], length=50)
+        
+        # 3. 计算 MACD (动量 - 新增!)
+        # macd 列名通常是 MACD_12_26_9, MACDh_... (柱), MACDs_... (信号)
+        macd = ta.macd(df['Close'], fast=12, slow=26, signal=9)
+        df = pd.concat([df, macd], axis=1)
         
         latest = df.iloc[-1]
+        
+        # 提取 MACD 值（不同库版本列名可能略有不同，这里取最后一列的相对位置或通用名）
+        # pandas_ta 默认列名: MACD_12_26_9, MACDh_12_26_9, MACDs_12_26_9
+        macd_val = latest['MACD_12_26_9']
+        macd_signal = latest['MACDs_12_26_9']
+        macd_hist = latest['MACDh_12_26_9']
+        
         current_price = latest['Close']
         
         summary = f"""
         交易对: {symbol}
-        现价: {current_price:.2f}
-        RSI(14): {latest['RSI']:.2f}
-        EMA(20): {latest['EMA_20']:.2f}
-        趋势: {'价格在EMA之上' if current_price > latest['EMA_20'] else '价格在EMA之下'}
+        现价: ${current_price:.2f}
+        
+        [技术指标详情]
+        1. RSI(14): {latest['RSI']:.2f} 
+           (参考: >70超买, <30超卖, 40-60为震荡)
+           
+        2. 均线趋势:
+           EMA(20): {latest['EMA_20']:.2f}
+           EMA(50): {latest['EMA_50']:.2f}
+           状态: {'短期看涨(价格>EMA20)' if current_price > latest['EMA_20'] else '短期看跌(价格<EMA20)'}
+           
+        3. MACD(12,26,9):
+           MACD线: {macd_val:.2f}
+           信号线: {macd_signal:.2f}
+           柱状图: {macd_hist:.2f}
+           状态: {'金叉(动能增强)' if macd_hist > 0 else '死叉(动能减弱)'}
         """
         return summary, current_price
 
@@ -49,70 +78,54 @@ def get_market_data(symbol='BTC-USD'):
         return None, 0
 
 def analyze_with_gemini(data_summary):
-    """调用 AI 分析 (带重试和 JSON 强制模式)"""
+    """调用 AI 分析 (V2.0: 扮演严厉的风控官)"""
     if not data_summary:
         return {"confidence": 0, "reason": "数据源故障", "signal": "WAIT"}
 
-    print("正在咨询 AI 分析师...")
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    print("正在咨询 AI 风控官...")
+    model = genai.GenerativeModel(MODEL_NAME)
     
+    # 🔥 V2.0 核心修改：提示词 (Prompt) 变得更严厉
     prompt = f"""
-    你是一个加密货币量化交易系统。请分析以下数据：
+    你是一个【极度保守、厌恶风险】的加密货币风控总监。你的任务是审核交易信号。
+    
+    请根据以下数据进行严格审查：
     {data_summary}
     
-    请严格输出 JSON，不要Markdown，不要解释。格式如下：
+    【评分规则】
+    1. 基础分只有 50 分。
+    2. 如果 RSI 在 40-60 之间（无方向），扣分，建议观望。
+    3. 如果 MACD 和 均线 信号矛盾（一个看涨一个看跌），必须大幅扣分。
+    4. 只有当 RSI、均线、MACD 三者【完全共振】时，才能给出 >80 的高分。
+    5. 不要试图讨好用户，如果有风险，请直言“风险过大”。
+    
+    请输出 JSON：
     {{
-        "signal": "BUY",
-        "confidence": 80,
-        "reason": "RSI超卖反弹"
+        "signal": "BUY" 或 "SELL" 或 "WAIT",
+        "confidence": 0-100的整数,
+        "reason": "毒舌一点的简短点评（20字以内）"
     }}
     """
     
-    # 🔥 关键修改 1: 关闭安全过滤 (防止 AI 因为"金融建议"而拒绝回答)
     safety_settings = {
         HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
         HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
         HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
         HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
     }
-
-    # 🔥 关键修改 2: 强制使用 JSON MIME Type
-    generation_config = {
-        "response_mime_type": "application/json"
-    }
+    generation_config = {"response_mime_type": "application/json"}
     
     try:
-        response = model.generate_content(
-            prompt, 
-            safety_settings=safety_settings,
-            generation_config=generation_config
-        )
-        
-        # 调试：打印一下原始回复，万一出错了能在 Log 里看到
-        print(f"AI 原始回复: {response.text}")
-        
+        response = model.generate_content(prompt, safety_settings=safety_settings, generation_config=generation_config)
         return json.loads(response.text)
-        
     except Exception as e:
-        # 如果出错，把具体的错误原因发到手机上，方便调试
-        error_msg = str(e)
-        print(f"AI 分析出错: {error_msg}")
-        return {"confidence": 0, "reason": f"API报错: {error_msg[:20]}...", "signal": "WAIT"}
+        print(f"AI 分析出错: {e}")
+        return {"confidence": 0, "reason": "API解析错误", "signal": "WAIT"}
 
 def send_pushplus(title, content):
-    """发送 PushPlus 推送"""
-    if not PUSHPLUS_TOKEN:
-        print("⚠️ 未设置 PUSHPLUS_TOKEN，跳过推送")
-        return
-
+    if not PUSHPLUS_TOKEN: return
     url = 'http://www.pushplus.plus/send'
-    data = {
-        "token": PUSHPLUS_TOKEN,
-        "title": title,
-        "content": content,
-        "template": "html"
-    }
-    requests.post(url, json=data)
+    requests.post(url, json={"token": PUSHPLUS_TOKEN, "title": title, "content": content, "template": "html"})
     print("✅ 推送已发送")
 
 def main():
@@ -121,32 +134,30 @@ def main():
     
     if data_text:
         result = analyze_with_gemini(data_text)
-        
-        score = result.get('confidence', 0)
-        reason = result.get('reason', '无理由')
+        score = result.get('confidence', 50)
+        reason = result.get('reason', '...')
         signal = result.get('signal', 'WAIT')
         
-        # 只有在有明确方向且信心较高时，才用显眼的图标
-        icon = "🤔"
-        if signal == "BUY": icon = "🟢 机会"
-        elif signal == "SELL": icon = "🔴 风险"
+        # 图标逻辑
+        icon = "☕" # 默认观望
+        if signal == "BUY": 
+            if score > 80: icon = "🔥 强烈买入"
+            else: icon = "🟢 谨慎买入"
+        elif signal == "SELL":
+            if score > 80: icon = "💀 紧急逃顶"
+            else: icon = "🔴 建议减仓"
         
-        msg_title = f"{icon} {signal} (信心:{score})"
-        
+        msg_title = f"{icon} {signal} (分:{score})"
         msg_content = f"""
-        <b>交易对:</b> {symbol}<br>
+        <b>标的:</b> {symbol}<br>
         <b>现价:</b> ${price:,.2f}<br>
-        <b>建议:</b> {signal}<br>
+        <b>AI评语:</b> {reason}<br>
         <b>信心:</b> {score}/100<br>
-        <b>分析:</b> {reason}<br>
-        <br>
-        <i>*Gemini 2.5 Flash 自动生成</i>
+        <hr>
+        <small>{data_text.replace(chr(10), '<br>')}</small>
         """
-        
         print(msg_title)
         send_pushplus(msg_title, msg_content)
-    else:
-        print("无数据，终止")
 
 if __name__ == "__main__":
     main()
