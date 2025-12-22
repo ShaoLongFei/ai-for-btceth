@@ -54,7 +54,7 @@ def analyze_with_gemini(data_summary):
         return {"confidence": 0, "reason": "数据源故障", "signal": "WAIT"}
 
     print("正在咨询 AI 分析师...")
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-1.5-flash-001')
     
     prompt = f"""
     你是一个加密货币量化交易系统。请分析以下数据：
