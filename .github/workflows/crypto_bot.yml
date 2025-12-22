@@ -2,8 +2,8 @@ name: Crypto AI Analysis
 
 on:
   schedule:
-    # 每天北京时间早上 8:00 (UTC 0:00) 运行
-    - cron: '0 0 * * *'
+    # 每天北京时间早上 8:00 (UTC 0:00) 运行，每4h运行一次
+    - cron: '0 */4 * * *'
   workflow_dispatch: # 允许你手动点击按钮测试
 
 jobs:
