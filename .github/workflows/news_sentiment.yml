@@ -1,0 +1,31 @@
+name: Crypto News Sentiment
+
+on:
+  schedule:
+    # 每四小时一次运行，交易机器人同步运行
+    - cron: '0 */4 * * *'
+  workflow_dispatch: # 允许手动点击按钮测试
+
+jobs:
+  news_analysis:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+        
+    - name: Install dependencies
+      # 这里只需要安装这几个库
+      run: pip install yfinance google-generativeai requests
+        
+    - name: Run News Bot
+      env:
+        # 直接复用你之前设置好的 Secrets，不用重新填
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+      run: python news_bot.py
