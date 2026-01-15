@@ -8,6 +8,7 @@ from datetime import datetime
 # --- 配置 ---
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 PUSHPLUS_TOKEN = os.getenv("PUSHPLUS_TOKEN")
+PUSHPLUS_TOKEN_LIYAN = os.getenv("PUSHPLUS_TOKEN_LIYAN")
 MODEL_NAME = 'gemini-2.5-flash' 
 
 if GEMINI_KEY:
@@ -74,6 +75,9 @@ def send_pushplus(html_content):
     if not PUSHPLUS_TOKEN: return
     requests.post('http://www.pushplus.plus/send', 
                   json={"token": PUSHPLUS_TOKEN, "title": "📢 每日币圈风向", "content": html_content, "template": "html"})
+    if not PUSHPLUS_TOKEN_LIYAN: return
+    requests.post('http://www.pushplus.plus/send', 
+                  json={"token": PUSHPLUS_TOKEN_LIYAN, "title": "📢 每日币圈风向", "content": html_content, "template": "html"})
 
 def main():
     news_text = get_crypto_news()
