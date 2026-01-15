@@ -9,6 +9,7 @@ import requests
 # --- 配置部分 ---
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 PUSHPLUS_TOKEN = os.getenv("PUSHPLUS_TOKEN")
+PUSHPLUS_TOKEN_LIYAN = os.getenv("PUSHPLUS_TOKEN_LIYAN")
 # 🔥 锁定你测试成功的 2.5 版本
 MODEL_NAME = 'gemini-2.5-flash' 
 
@@ -104,6 +105,9 @@ def send_pushplus(title, content):
     if not PUSHPLUS_TOKEN: return
     requests.post('http://www.pushplus.plus/send', 
                   json={"token": PUSHPLUS_TOKEN, "title": title, "content": content, "template": "html"})
+    if not PUSHPLUS_TOKEN_LIYAN: return
+    requests.post('http://www.pushplus.plus/send', 
+                  json={"token": PUSHPLUS_TOKEN_LIYAN, "title": title, "content": content, "template": "html"})
     print("✅ 推送发送成功")
 
 def main():
