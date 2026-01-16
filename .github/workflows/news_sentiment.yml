@@ -28,4 +28,5 @@ jobs:
         # 直接复用你之前设置好的 Secrets，不用重新填
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+        PUSHPLUS_TOKEN_LIYAN : ${{secrets.PUSHPLUS_TOKEN_LIYAN }}
       run: python news_bot.py
