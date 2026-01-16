@@ -28,4 +28,5 @@ jobs:
         # 这里会自动读取你在仓库 Settings 里填写的密钥
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+        PUSHPLUS_TOKEN_LIYAN : ${{secrets.PUSHPLUS_TOKEN_LIYAN }}
       run: python main.py
