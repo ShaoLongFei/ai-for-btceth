@@ -102,13 +102,23 @@ def analyze_with_gemini(data_summary, current_price):
         return {"signal": "WAIT", "confidence": 0, "reason": f"API Error: {str(e)[:20]}"}
 
 def send_pushplus(title, content):
-    if not PUSHPLUS_TOKEN: return
-    requests.post('http://www.pushplus.plus/send', 
+    if PUSHPLUS_TOKEN: 
+        requests.post('http://www.pushplus.plus/send', 
                   json={"token": PUSHPLUS_TOKEN, "title": title, "content": content, "template": "html"})
-    if not PUSHPLUS_TOKEN_LIYAN: return
-    requests.post('http://www.pushplus.plus/send', 
+        print("✅ PUSHPLUS_TOKEN 推送发送成功")
+    else
+        print("⚠️ PUSHPLUS_TOKEN 未找到")
+
+    # 测试
+    print(f"PUSHPLUS_TOKEN 的类型 {type(PUSHPLUS_TOKEN)}，PUSHPLUS_TOKEN 的内容 {PUSHPLUS_TOKEN}")
+    print(f"PUSHPLUS_TOKEN_LIYAN 的类型 {type(PUSHPLUS_TOKEN_LIYAN)}，PUSHPLUS_TOKEN_LIYAN 的内容 {PUSHPLUS_TOKEN_LIYAN}")
+    
+    if PUSHPLUS_TOKEN_LIYAN:
+        requests.post('http://www.pushplus.plus/send', 
                   json={"token": PUSHPLUS_TOKEN_LIYAN, "title": title, "content": content, "template": "html"})
-    print("✅ 推送发送成功")
+        print("✅ PUSHPLUS_TOKEN_LIYAN 推送发送成功")
+    else
+        print("⚠️ PUSHPLUS_TOKEN_LIYAN 未找到")
 
 def main():
     symbol = 'BTC-USD'
