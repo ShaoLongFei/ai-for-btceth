@@ -106,7 +106,7 @@ def send_pushplus(title, content):
         requests.post('http://www.pushplus.plus/send', 
                   json={"token": PUSHPLUS_TOKEN, "title": title, "content": content, "template": "html"})
         print("✅ PUSHPLUS_TOKEN 推送发送成功")
-    else
+    else:
         print("⚠️ PUSHPLUS_TOKEN 未找到")
 
     # 测试
@@ -117,7 +117,7 @@ def send_pushplus(title, content):
         requests.post('http://www.pushplus.plus/send', 
                   json={"token": PUSHPLUS_TOKEN_LIYAN, "title": title, "content": content, "template": "html"})
         print("✅ PUSHPLUS_TOKEN_LIYAN 推送发送成功")
-    else
+    else:
         print("⚠️ PUSHPLUS_TOKEN_LIYAN 未找到")
 
 def main():
